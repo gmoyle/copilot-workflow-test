@@ -37,16 +37,27 @@ jobs:
 
       - name: Install/verify Copilot extension
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          # Use the workflow token for installation; Copilot PAT is used later for chat
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           echo "Installing GitHub Copilot CLI extension..."
-          gh extension remove github/gh-copilot || true
-          gh extension install github/gh-copilot --force --verbose
+          EXT_DIR="$HOME/.local/share/gh/extensions/gh-copilot"
+          # Try via gh (preferred)
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            gh extension install github/gh-copilot --force || install_failed=1
+          fi
+          # Fallback: git clone the extension
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            echo "gh extension install failed; falling back to git clone"
+            mkdir -p "$(dirname "$EXT_DIR")"
+            rm -rf "$EXT_DIR"
+            git clone --depth=1 https://github.com/github/gh-copilot "$EXT_DIR"
+          fi
           echo "Installed extensions:"
           gh extension list || true
           echo "Sanity check Copilot command:"
-          gh copilot --version || (echo "Copilot extension not available after install" && exit 1)
+          gh copilot --help >/dev/null 2>&1 || (echo "Copilot extension not available after install" && exit 1)
 
       - name: Test Copilot CLI (non-interactive)
         env:

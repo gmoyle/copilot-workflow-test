@@ -67,6 +67,8 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          REPO: ${{ github.repository }}
+          PUSH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
           set -euo pipefail
           echo "Base ref: ${BASE_REF}"
@@ -107,6 +109,10 @@ EOF
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Ensure pushes use the PAT to avoid permission issues
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO}.git"
+
           git add README.md || true
           if git diff --cached --quiet; then
             echo "No README changes to commit."

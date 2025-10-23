@@ -6,7 +6,7 @@
 
 
 
-# Copilot Workflow Test
+# Copilot Workflow Test (Demo)
 
 This repository tests GitHub Copilot CLI integration in GitHub Actions workflows.
 
@@ -23,7 +23,7 @@ You can also trigger the workflow manually:
 - Select "Copilot CLI Test" workflow
 - Click "Run workflow"
 
-## Expected Behavior
+## Expected Behavior (Updated)
 
 The workflow will:
 - Install GitHub CLI

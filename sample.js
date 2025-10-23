@@ -22,4 +22,8 @@ function divide(a, b) {
   return a / b;
 }
 
-module.exports = { greet, add, subtract, multiply, divide };
+function square(a) {
+  return a * a;
+}
+
+module.exports = { greet, add, subtract, multiply, divide, square };

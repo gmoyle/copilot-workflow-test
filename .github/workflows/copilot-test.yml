@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   copilot-test:
@@ -29,22 +29,35 @@ jobs:
 
       - name: Verify GitHub CLI
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: gh --version
 
       - name: Install Copilot extension
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
           echo "Installing GitHub Copilot CLI extension..."
           gh extension install github/gh-copilot || echo "Extension may already be installed or unavailable"
 
-      - name: Test Copilot CLI
+      - name: Test Copilot CLI (non-interactive)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
+          set -e
           echo "Testing Copilot CLI availability..."
+          gh auth status || true
           gh copilot --version || echo "Copilot CLI not available or authentication failed"
+
+          echo "Preparing diff for explanation..."
+          BASE=${{ github.base_ref || 'main' }}
+          git fetch origin "$BASE"
+          git diff --unified=0 "origin/$BASE...HEAD" > changes.diff || true
+
+          echo "Requesting explanation from Copilot..."
+          gh copilot explain -f changes.diff > copilot_explanation.txt || echo "Copilot explain failed" > copilot_explanation.txt
+
+          echo "### Copilot Explanation" >> "$GITHUB_STEP_SUMMARY"
+          cat copilot_explanation.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update README with changelist (PR only)
         if: github.event_name == 'pull_request'
@@ -68,18 +81,20 @@ jobs:
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Build the changelist block safely without heredocs to avoid YAML parsing issues
-          NEW_BLOCK=$(printf "%s\n" \
-"<!-- CHANGELOG:START -->" \
-"## Latest PR Change List (auto-updated)" \
-"" \
-"Base: ${BASE_REF}" \
-"Head: ${HEAD_REF}" \
-"" \
-"Changes:" \
-"${CHANGES}" \
-"" \
-"Updated: ${TS}" \
-"<!-- CHANGELOG:END -->")
+          NEW_BLOCK=$(cat <<EOF
+<!-- CHANGELOG:START -->
+## Latest PR Change List (auto-updated)
+
+Base: ${BASE_REF}
+Head: ${HEAD_REF}
+
+Changes:
+${CHANGES}
+
+Updated: ${TS}
+<!-- CHANGELOG:END -->
+EOF
+)
 
           # Remove existing block if present, then append the new block
           if grep -q "<!-- CHANGELOG:START -->" README.md; then

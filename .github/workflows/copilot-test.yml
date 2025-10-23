@@ -13,10 +13,13 @@ jobs:
   copilot-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout PR head branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install GitHub CLI
         run: |

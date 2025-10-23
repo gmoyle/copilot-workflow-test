@@ -35,12 +35,18 @@ jobs:
           GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: gh --version
 
-      - name: Install Copilot extension
+      - name: Install/verify Copilot extension
         env:
           GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
+          set -e
           echo "Installing GitHub Copilot CLI extension..."
-          gh extension install github/gh-copilot || echo "Extension may already be installed or unavailable"
+          gh extension remove github/gh-copilot || true
+          gh extension install github/gh-copilot --force --verbose
+          echo "Installed extensions:"
+          gh extension list || true
+          echo "Sanity check Copilot command:"
+          gh copilot --version || (echo "Copilot extension not available after install" && exit 1)
 
       - name: Test Copilot CLI (non-interactive)
         env:
@@ -48,7 +54,10 @@ jobs:
         run: |
           set -e
           echo "Testing Copilot CLI availability..."
-          gh auth status || true
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            echo "Copilot extension not installed; skipping Copilot usage."
+            exit 0
+          fi
           gh copilot --version || echo "Copilot CLI not available or authentication failed"
 
           echo "Preparing diff for explanation..."

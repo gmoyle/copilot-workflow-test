@@ -26,4 +26,8 @@ function square(a) {
   return a * a;
 }
 
-module.exports = { greet, add, subtract, multiply, divide, square };
+function mod(a, b) {
+  return a % b;
+}
+
+module.exports = { greet, add, subtract, multiply, divide, square, mod };

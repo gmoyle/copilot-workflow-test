@@ -1,3 +1,8 @@
+<!-- HAMLET:START -->
+> Brevity is the soul of wit. — Hamlet
+
+<!-- HAMLET:END -->
+
 # Copilot Workflow Test
 
 This repository tests GitHub Copilot CLI integration in GitHub Actions workflows.
@@ -24,6 +29,7 @@ The workflow will:
 
 Note: Copilot CLI access depends on your GitHub account's Copilot subscription.
 
+
 <!-- CHANGELOG:START -->
 ## Latest PR Change List (auto-updated)
 
@@ -32,7 +38,8 @@ Head: feat/copilot-workflow-test
 
 Changes:
  - M	.github/workflows/copilot-test.yml
+ - M	README.md
  - M	sample.js
 
-Updated: 2025-10-23T06:17:03Z
+Updated: 2025-10-23T06:22:09Z
 <!-- CHANGELOG:END -->

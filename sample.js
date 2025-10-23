@@ -1,11 +1,16 @@
 // Sample JavaScript file for testing Copilot workflow
 
 function greet(name) {
-  return `Hello, ${name}!`;
+  const who = name || 'World';
+  return `Hello, ${who}!`;
 }
 
 function add(a, b) {
   return a + b;
 }
 
-module.exports = { greet, add };
+function multiply(a, b) {
+  return a * b;
+}
+
+module.exports = { greet, add, multiply };

@@ -67,34 +67,25 @@ jobs:
 
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          NEW_BLOCK=$(cat <<'EOT'
-<!-- CHANGELOG:START -->
-## Latest PR Change List (auto-updated)
+          # Build the changelist block safely without heredocs to avoid YAML parsing issues
+          NEW_BLOCK=$(printf "%s\n" \
+"<!-- CHANGELOG:START -->" \
+"## Latest PR Change List (auto-updated)" \
+"" \
+"Base: ${BASE_REF}" \
+"Head: ${HEAD_REF}" \
+"" \
+"Changes:" \
+"${CHANGES}" \
+"" \
+"Updated: ${TS}" \
+"<!-- CHANGELOG:END -->")
 
-EOT
-)
-          NEW_BLOCK+=$'Base: '${BASE_REF}$'\n'
-          NEW_BLOCK+=$'Head: '${HEAD_REF}$'\n\n'
-          NEW_BLOCK+=$'Changes:\n'
-          NEW_BLOCK+="$CHANGES"
-          NEW_BLOCK+=$'\n\nUpdated: '
-          NEW_BLOCK+="$TS"
-          NEW_BLOCK+=$'\n<!-- CHANGELOG:END -->\n'
-
+          # Remove existing block if present, then append the new block
           if grep -q "<!-- CHANGELOG:START -->" README.md; then
-            # Replace existing block between markers
-            awk 'BEGIN{p=1} /<!-- CHANGELOG:START -->/{print; p=0; print_block=1; next} /<!-- CHANGELOG:END -->/{print; p=1; print_block=0; next} p{print}' README.md > README.tmp
-            # Now insert NEW_BLOCK over the markers in README.tmp
-            awk -v block="$NEW_BLOCK" '
-              BEGIN{printed=0}
-              {
-                if ($0 ~ /<!-- CHANGELOG:START -->/) { print block; skip=1 }
-                else if (skip && $0 ~ /<!-- CHANGELOG:END -->/) { skip=0 }
-                else if (!skip) { print }
-              }' README.tmp > README.md || true
-          else
-            printf "\n%s\n" "$NEW_BLOCK" >> README.md
+            sed -i '/<!-- CHANGELOG:START -->/,/<!-- CHANGELOG:END -->/d' README.md
           fi
+          printf "\n%s\n" "$NEW_BLOCK" >> README.md
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

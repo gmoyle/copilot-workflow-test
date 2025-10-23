@@ -85,7 +85,34 @@ jobs:
 
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          # Build the changelist block safely without heredocs to avoid YAML parsing issues
+          # -------------------- Hamlet quote (top of README) --------------------
+          quotes=(
+            "To be, or not to be: that is the question."
+            "There is nothing either good or bad, but thinking makes it so."
+            "Though this be madness, yet there is method in't."
+            "Brevity is the soul of wit."
+            "The lady doth protest too much, methinks."
+            "What a piece of work is a man!"
+          )
+          q_idx=$((RANDOM % ${#quotes[@]}))
+          q="${quotes[$q_idx]}"
+
+          HAMLET_BLOCK=$(printf "%s\n" \
+            "<!-- HAMLET:START -->" \
+            "> ${q} — Hamlet" \
+            "" \
+            "<!-- HAMLET:END -->")
+
+          # Remove existing hamlet block (if any) from the top and prepend the new one
+          if grep -q "<!-- HAMLET:START -->" README.md; then
+            sed -i '1,200{/<!-- HAMLET:START -->/,/<!-- HAMLET:END -->/d}' README.md
+          fi
+          {
+            printf "%s\n\n" "$HAMLET_BLOCK"
+            cat README.md
+          } > README.new && mv README.new README.md
+
+          # -------------------- PR changelist (bottom section) --------------------
           NEW_BLOCK=$(printf "%s\n" \
             "<!-- CHANGELOG:START -->" \
             "## Latest PR Change List (auto-updated)" \

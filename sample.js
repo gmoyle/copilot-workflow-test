@@ -1,4 +1,4 @@
-// Sample JavaScript file for testing Copilot workflow
+// Sample JavaScript file for testing Copilot workflow (trigger)
 
 function greet(name) {
   const who = name || 'World';

@@ -86,20 +86,18 @@ jobs:
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Build the changelist block safely without heredocs to avoid YAML parsing issues
-          NEW_BLOCK=$(cat <<EOF
-<!-- CHANGELOG:START -->
-## Latest PR Change List (auto-updated)
-
-Base: ${BASE_REF}
-Head: ${HEAD_REF}
-
-Changes:
-${CHANGES}
-
-Updated: ${TS}
-<!-- CHANGELOG:END -->
-EOF
-)
+          NEW_BLOCK=$(printf "%s\n" \
+            "<!-- CHANGELOG:START -->" \
+            "## Latest PR Change List (auto-updated)" \
+            "" \
+            "Base: ${BASE_REF}" \
+            "Head: ${HEAD_REF}" \
+            "" \
+            "Changes:" \
+            "${CHANGES}" \
+            "" \
+            "Updated: ${TS}" \
+            "<!-- CHANGELOG:END -->")
 
           # Remove existing block if present, then append the new block
           if grep -q "<!-- CHANGELOG:START -->" README.md; then

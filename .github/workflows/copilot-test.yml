@@ -153,5 +153,12 @@ jobs:
             echo "No README changes to commit."
           else
             git commit -m "docs(README): auto-update change list for PR ${{ github.event.pull_request.number }}"
-            git push origin "HEAD:${HEAD_REF}"
+            # Try push; if rejected, rebase onto remote head and retry once
+            if git push origin "HEAD:${HEAD_REF}"; then
+              echo "Pushed README update."
+            else
+              echo "Push rejected (non-fast-forward). Rebasing onto remote and retrying..."
+              git pull --rebase origin "${HEAD_REF}" || git rebase --abort
+              git push origin "HEAD:${HEAD_REF}" || echo "Retry push failed; skipping."
+            fi
           fi

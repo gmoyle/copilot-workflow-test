@@ -69,6 +69,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           REPO: ${{ github.repository }}
           PUSH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
           set -euo pipefail
           echo "Base ref: ${BASE_REF}"
@@ -85,17 +86,26 @@ jobs:
 
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          # -------------------- Hamlet quote (top of README) --------------------
-          quotes=(
-            "To be, or not to be: that is the question."
-            "There is nothing either good or bad, but thinking makes it so."
-            "Though this be madness, yet there is method in't."
-            "Brevity is the soul of wit."
-            "The lady doth protest too much, methinks."
-            "What a piece of work is a man!"
-          )
-          q_idx=$((RANDOM % ${#quotes[@]}))
-          q="${quotes[$q_idx]}"
+          # -------------------- Hamlet quote (top of README) via Copilot --------------------
+          PROMPT="From Shakespeare's Hamlet, output one short quote under 140 characters. Output only the quote text without attribution."
+          echo "Requesting Hamlet quote from Copilot..."
+          if gh copilot chat -p "$PROMPT" > hamlet_raw.txt 2>/dev/null; then
+            # take the first non-empty line, strip surrounding quotes/backticks
+            q=$(sed -n '/\S/p;q' hamlet_raw.txt | sed -e 's/^\s*["'"'"'\`]*//' -e 's/["'"'"'\`]*\s*$//')
+          fi
+          if [ -z "${q:-}" ]; then
+            # Fallback list
+            quotes=(
+              "To be, or not to be: that is the question."
+              "There is nothing either good or bad, but thinking makes it so."
+              "Though this be madness, yet there is method in't."
+              "Brevity is the soul of wit."
+              "The lady doth protest too much, methinks."
+              "What a piece of work is a man!"
+            )
+            q_idx=$((RANDOM % ${#quotes[@]}))
+            q="${quotes[$q_idx]}"
+          fi
 
           HAMLET_BLOCK=$(printf "%s\n" \
             "<!-- HAMLET:START -->" \

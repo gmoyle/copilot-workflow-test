@@ -23,3 +23,16 @@ The workflow will:
 - Test if Copilot CLI is available
 
 Note: Copilot CLI access depends on your GitHub account's Copilot subscription.
+
+<!-- CHANGELOG:START -->
+## Latest PR Change List (auto-updated)
+
+Base: main
+Head: feat/copilot-workflow-test
+
+Changes:
+ - M	.github/workflows/copilot-test.yml
+ - M	sample.js
+
+Updated: 2025-10-23T06:17:03Z
+<!-- CHANGELOG:END -->

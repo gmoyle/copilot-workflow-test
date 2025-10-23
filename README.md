@@ -1,4 +1,13 @@
-# Copilot Workflow Test
+<!-- HAMLET:START -->
+> Though this be madness, yet there is method in't. — Hamlet
+
+<!-- HAMLET:END -->
+
+
+
+
+
+# Copilot Workflow Test (Demo)
 
 This repository tests GitHub Copilot CLI integration in GitHub Actions workflows.
 
@@ -15,7 +24,7 @@ You can also trigger the workflow manually:
 - Select "Copilot CLI Test" workflow
 - Click "Run workflow"
 
-## Expected Behavior
+## Expected Behavior (Updated)
 
 The workflow will:
 - Install GitHub CLI
@@ -23,3 +32,22 @@ The workflow will:
 - Test if Copilot CLI is available
 
 Note: Copilot CLI access depends on your GitHub account's Copilot subscription.
+
+
+
+
+
+
+<!-- CHANGELOG:START -->
+## Latest PR Change List (auto-updated)
+
+Base: main
+Head: feat/copilot-workflow-test
+
+Changes:
+ - M	.github/workflows/copilot-test.yml
+ - M	README.md
+ - M	sample.js
+
+Updated: 2025-10-23T06:37:55Z
+<!-- CHANGELOG:END -->

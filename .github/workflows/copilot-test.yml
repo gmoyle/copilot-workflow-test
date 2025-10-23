@@ -5,14 +5,21 @@ on:
     types: [opened, synchronize]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   copilot-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout PR head branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install GitHub CLI
         run: |
@@ -25,19 +32,153 @@ jobs:
 
       - name: Verify GitHub CLI
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: gh --version
 
-      - name: Install Copilot extension
+      - name: Install/verify Copilot extension
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use the workflow token for installation; Copilot PAT is used later for chat
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
           echo "Installing GitHub Copilot CLI extension..."
-          gh extension install github/gh-copilot || echo "Extension may already be installed or unavailable"
+          EXT_DIR="$HOME/.local/share/gh/extensions/gh-copilot"
+          # Try via gh (preferred)
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            gh extension install github/gh-copilot --force || install_failed=1
+          fi
+          # Fallback: git clone the extension
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            echo "gh extension install failed; falling back to git clone"
+            mkdir -p "$(dirname "$EXT_DIR")"
+            rm -rf "$EXT_DIR"
+            git clone --depth=1 https://github.com/github/gh-copilot "$EXT_DIR"
+          fi
+          echo "Installed extensions:"
+          gh extension list || true
+          echo "Sanity check Copilot command:"
+          gh copilot --help >/dev/null 2>&1 || (echo "Copilot extension not available after install" && exit 1)
 
-      - name: Test Copilot CLI
+      - name: Test Copilot CLI (non-interactive)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
+          set -e
           echo "Testing Copilot CLI availability..."
+          if ! gh extension list | grep -q 'gh-copilot'; then
+            echo "Copilot extension not installed; skipping Copilot usage."
+            exit 0
+          fi
           gh copilot --version || echo "Copilot CLI not available or authentication failed"
+
+          echo "Preparing diff for explanation..."
+          BASE=${{ github.base_ref || 'main' }}
+          git fetch origin "$BASE"
+          git diff --unified=0 "origin/$BASE...HEAD" > changes.diff || true
+
+          echo "Requesting explanation from Copilot..."
+          gh copilot explain -f changes.diff > copilot_explanation.txt || echo "Copilot explain failed" > copilot_explanation.txt
+
+          echo "### Copilot Explanation" >> "$GITHUB_STEP_SUMMARY"
+          cat copilot_explanation.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update README with changelist (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          REPO: ${{ github.repository }}
+          PUSH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Base ref: ${BASE_REF}"
+          echo "Head ref: ${HEAD_REF}"
+
+          git fetch origin "${BASE_REF}"
+          git fetch origin "${HEAD_REF}"
+
+          echo "Generating changelist..."
+          CHANGES=$(git diff --name-status "origin/${BASE_REF}...origin/${HEAD_REF}" | sed 's/^/ - /')
+          if [ -z "${CHANGES}" ]; then
+            CHANGES="(no file changes detected)"
+          fi
+
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # -------------------- Hamlet quote (top of README) via Copilot --------------------
+          PROMPT="From Shakespeare's Hamlet, output one short quote under 140 characters. Output only the quote text without attribution."
+          echo "Requesting Hamlet quote from Copilot..."
+          if gh copilot chat -p "$PROMPT" > hamlet_raw.txt 2>/dev/null; then
+            # take the first non-empty line, strip surrounding quotes/backticks
+            q=$(sed -n '/\S/p;q' hamlet_raw.txt | sed -e 's/^\s*["'"'"'\`]*//' -e 's/["'"'"'\`]*\s*$//')
+          fi
+          if [ -z "${q:-}" ]; then
+            # Fallback list
+            quotes=(
+              "To be, or not to be: that is the question."
+              "There is nothing either good or bad, but thinking makes it so."
+              "Though this be madness, yet there is method in't."
+              "Brevity is the soul of wit."
+              "The lady doth protest too much, methinks."
+              "What a piece of work is a man!"
+            )
+            q_idx=$((RANDOM % ${#quotes[@]}))
+            q="${quotes[$q_idx]}"
+          fi
+
+          HAMLET_BLOCK=$(printf "%s\n" \
+            "<!-- HAMLET:START -->" \
+            "> ${q} — Hamlet" \
+            "" \
+            "<!-- HAMLET:END -->")
+
+          # Remove existing hamlet block (if any) from the top and prepend the new one
+          if grep -q "<!-- HAMLET:START -->" README.md; then
+            sed -i '1,200{/<!-- HAMLET:START -->/,/<!-- HAMLET:END -->/d}' README.md
+          fi
+          {
+            printf "%s\n\n" "$HAMLET_BLOCK"
+            cat README.md
+          } > README.new && mv README.new README.md
+
+          # -------------------- PR changelist (bottom section) --------------------
+          NEW_BLOCK=$(printf "%s\n" \
+            "<!-- CHANGELOG:START -->" \
+            "## Latest PR Change List (auto-updated)" \
+            "" \
+            "Base: ${BASE_REF}" \
+            "Head: ${HEAD_REF}" \
+            "" \
+            "Changes:" \
+            "${CHANGES}" \
+            "" \
+            "Updated: ${TS}" \
+            "<!-- CHANGELOG:END -->")
+
+          # Remove existing block if present, then append the new block
+          if grep -q "<!-- CHANGELOG:START -->" README.md; then
+            sed -i '/<!-- CHANGELOG:START -->/,/<!-- CHANGELOG:END -->/d' README.md
+          fi
+          printf "\n%s\n" "$NEW_BLOCK" >> README.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Ensure pushes use the PAT to avoid permission issues
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO}.git"
+
+          git add README.md || true
+          if git diff --cached --quiet; then
+            echo "No README changes to commit."
+          else
+            git commit -m "docs(README): auto-update change list for PR ${{ github.event.pull_request.number }}"
+            # Try push; if rejected, rebase onto remote head and retry once
+            if git push origin "HEAD:${HEAD_REF}"; then
+              echo "Pushed README update."
+            else
+              echo "Push rejected (non-fast-forward). Rebasing onto remote and retrying..."
+              git pull --rebase origin "${HEAD_REF}" || git rebase --abort
+              git push origin "HEAD:${HEAD_REF}" || echo "Retry push failed; skipping."
+            fi
+          fi
